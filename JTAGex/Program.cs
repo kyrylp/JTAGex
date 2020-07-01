@@ -58,10 +58,14 @@ namespace CPLD.Exercise
                     return;
                 }
 
-                int id = Read_IDCODE();
+                // NOTE: In the future we can perform automatic discovery of JTAG-capable chips,
+                // but in this version we hardcode the chip type for simplicity
+                Chip chip = new XC2C64A_VQ44();
+
+                int id = Read_IDCODE(chip);
 
                 // Compare obtained id with expected value for this part/package
-                if (id == XC2C64A_VQ44.IDCODE_FACTORY)
+                if (id == chip.IDCODE_FACTORY)
                 {
                     Console.WriteLine("IDCODE Match: 0x" + id.ToString("X8"));    // Print out IDCODE in HEX format for reference
 
@@ -69,7 +73,7 @@ namespace CPLD.Exercise
                     Console.WriteLine("Flashing LEDs...\nPress Ctrl-C to stop");
                     while (true)
                     {
-                        Test_Pins(XC2C64A_VQ44.Pins);
+                        Test_Pins(chip);
                     }
                 }
                 else
@@ -90,12 +94,12 @@ namespace CPLD.Exercise
         /// int[] specifying bits in BOUNDARY_REGISTER which 
         /// need to be flipped (1/0) in order to turn on the LEDs
         /// </param>
-        static void Test_Pins(int[] pins)
+        static void Test_Pins(Chip chip)
         {
             // Test-Logic-Reset and go to Run-Test-Idle 
             Tms(1); Tms(1); Tms(1); Tms(1); Tms(1); Tms(0);
 
-            foreach (int pin in pins)
+            foreach (int pin in chip.Pins)
             {
                 // Advance to Shift-DR
                 Tms(1); Tms(0); Tms(0);
@@ -103,14 +107,14 @@ namespace CPLD.Exercise
                 Set(TDI, 0);
 
                 // Shift in all zeroes except for a bit specified in pins[]
-                for (int i = 0; i < XC2C64A_VQ44.BOUNDARY_REGISTER_LENGTH; i++)
+                for (int i = 0; i < chip.BOUNDARY_REGISTER_LENGTH; i++)
                 {
                     if (i == pin)
                     {
                         Set(TDI, 1);
                         Tck(); Tck();
                         Set(TDI, 0);
-                    }
+                   }
                     else
                     {
                         Tck();
@@ -124,8 +128,8 @@ namespace CPLD.Exercise
                 Tms(1); Tms(1); Tms(0); Tms(0);
 
                 // Load EXTEST instruction
-                int val = XC2C64A_VQ44.EXTEST_INSTRUCTION;
-                for (int i = 0; i < XC2C64A_VQ44.INSTRUCTION_LENGTH; i++)
+                int val = chip.EXTEST_INSTRUCTION;
+                for (int i = 0; i < chip.INSTRUCTION_LENGTH; i++)
                 {
                     val >>= i;
                     Set(TDI, val & 1);
@@ -145,7 +149,7 @@ namespace CPLD.Exercise
         /// <returns>
         /// Int32 value of the IDCODE register
         /// </returns>
-        public static int Read_IDCODE()
+        public static int Read_IDCODE(Chip chip)
         {
             // Test-Logic-Reset and advance TAP to Run-Test-Idle
             TAP_Reset();
@@ -164,7 +168,7 @@ namespace CPLD.Exercise
 
             // Shift out IDCODE
             int result = 0;
-            for (int i = 0; i < XC2C64A_VQ44.IDCODE_REGISTER_LENGTH; i++)
+            for (int i = 0; i < chip.IDCODE_REGISTER_LENGTH; i++)
             {
                 int bit = Get(TDO);
                 Tdi(0);

@@ -36,8 +36,8 @@
     <Reference Include="FTD2XX_NET, Version=1.0.14.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\FTD2XX.Net.1.0.14\lib\FTD2XX_NET.dll</HintPath>
     </Reference>
-    <Reference Include="SX.JTAG.Xilinx, Version=1.0.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\SX.JTAG.Xilinx.1.0.1\lib\netstandard2.0\SX.JTAG.Xilinx.dll</HintPath>
+    <Reference Include="SX.JTAG.Xilinx, Version=1.0.6.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\SX.JTAG.Xilinx.1.0.6\lib\netstandard2.0\SX.JTAG.Xilinx.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
