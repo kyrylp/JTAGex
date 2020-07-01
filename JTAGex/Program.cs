@@ -90,14 +90,14 @@ namespace CPLD.Exercise
         /// <summary>
         /// Toggle pins by running EXTEST instruction
         /// </summary>
-        /// <param name="pins">
-        /// int[] specifying bits in BOUNDARY_REGISTER which 
-        /// need to be flipped (1/0) in order to turn on the LEDs
+        /// <param name="chip">
+        /// Chip object specifying among other properties, bits in BOUNDARY_REGISTER 
+        /// which need to be flipped in order to blink the LEDs
         /// </param>
         static void Test_Pins(Chip chip)
         {
-            // Test-Logic-Reset and go to Run-Test-Idle 
-            Tms(1); Tms(1); Tms(1); Tms(1); Tms(1); Tms(0);
+            // Test-Logic-Reset and advance TAP to Run-Test-Idle
+            TAP_Reset();
 
             foreach (int pin in chip.Pins)
             {
@@ -114,7 +114,7 @@ namespace CPLD.Exercise
                         Set(TDI, 1);
                         Tck(); Tck();
                         Set(TDI, 0);
-                   }
+                    }
                     else
                     {
                         Tck();
@@ -128,27 +128,23 @@ namespace CPLD.Exercise
                 Tms(1); Tms(1); Tms(0); Tms(0);
 
                 // Load EXTEST instruction
-                int val = chip.EXTEST_INSTRUCTION;
-                for (int i = 0; i < chip.INSTRUCTION_LENGTH; i++)
-                {
-                    val >>= i;
-                    Set(TDI, val & 1);
-                    Tck();
-                }
+                Load_Instruction(chip.EXTEST_INSTRUCTION, chip.INSTRUCTION_LENGTH);
 
                 //Advance to Run-Test/Idle
-                Tms(1); Tms(1); Tms(0);
+                Tms(1); Tms(0);
 
                 Thread.Sleep(100);
             }
         }
 
         /// <summary>
-        /// Read IDCODE register
+        /// Reads IDCODE register
         /// </summary>
-        /// <returns>
-        /// Int32 value of the IDCODE register
-        /// </returns>
+        /// <param name="chip">
+        /// Chip object specifying among other properties, bits in BOUNDARY_REGISTER 
+        /// which need to be flipped in order to blink the LEDs
+        /// </param>
+        /// <returns>Int32 IDCODE register value</returns>
         public static int Read_IDCODE(Chip chip)
         {
             // Test-Logic-Reset and advance TAP to Run-Test-Idle
@@ -157,11 +153,8 @@ namespace CPLD.Exercise
             // Advance TAP to Shift-IR
             Tms(1); Tms(1); Tms(0); Tms(0);
 
-            // Shift in IDCODE instruction
-            Tdi(1); Tdi(0); Tdi(0); Tdi(0); Tdi(0); Tdi(0); Tdi(0); Set(TDI, 0);
-
-            // Exit1-IR
-            Tms(1);
+            // Load IDCODE instruction
+            Load_Instruction(chip.IDCODE_INSTRUCTION, chip.INSTRUCTION_LENGTH);
 
             // Advance to Shift-DR
             Tms(1); Tms(1); Tms(0); Tms(0);
@@ -184,6 +177,28 @@ namespace CPLD.Exercise
             Tms(1); Tms(1); Tms(0);
 
             return result;
+        }
+
+        /// <summary>
+        /// Shifts in the instruction into IR
+        /// </summary>
+        /// <param name="instr">Int32 instruction value</param>
+        /// <param name="length">Instruction register length</param>
+        static void Load_Instruction(int instr, int length)
+        {
+            for (int i = 0; i < length; i++)
+            {
+                instr >>= i;
+                Set(TDI, instr & 1);
+                if (i == length - 1)
+                {
+                    Tms(1); // Set TMS along with the last bit to properly perform Exit1-IR
+                }
+                else
+                {
+                    Tck();
+                }
+            }
         }
 
         /// <summary>
