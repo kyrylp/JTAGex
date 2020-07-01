@@ -1,4 +1,8 @@
-﻿using System;
+﻿// Simple JTAG tester
+// USAGE: JTAGex.exe [NUMBER]
+// Where NUMBER is optional FTDI interface number
+
+using System;
 using System.Diagnostics;
 using System.Threading;
 
@@ -10,32 +14,49 @@ namespace CPLD.Exercise
     class Program
     {
         // FTDI 232H Cable object
-        public static FTDI ftdi = new FTDI();
-
-        public static FTDI.FT_STATUS ft_status = FTDI.FT_STATUS.FT_OTHER_ERROR;
+        static FTDI Ftdi = new FTDI();
 
         // FTDI Cable Pins (MPSSE Mode)
         const byte TCK = 0;  // Orange
         const byte TDO = 1;  // Green
         const byte TDI = 2;  // Yellow
         const byte TMS = 3;  // Brown
-        static byte[] data = { 0b00000000 };
+        static byte[] Data = { 0b00000000 };
 
         static void Main(string[] args)
         {
             try
             {
-                // TODO: Add error handling for FTDI status
-                ft_status = ftdi.OpenByIndex(1);
-                ft_status = ftdi.SetBaudRate(9600);
+                // Attempt to open FTDI interface specified as CLI parameter
+                int index = 1;
+                if ((args.Length == 1 && !int.TryParse(args[0], out index)) || args.Length > 1 )
+                {
+                    Console.WriteLine("USAGE: JTAGex.exe [NUMBER]\nWhere NUMBER is an FTDI interface number");
+                    return;
+                }
+
+                if (Ftdi.OpenByIndex((uint)index) != FTDI.FT_STATUS.FT_OK)
+                {
+                    Console.WriteLine("ERROR: Can not open FTDI interface #" + index.ToString());
+                    return;
+                }
+
+                if (Ftdi.SetBaudRate(9600) != FTDI.FT_STATUS.FT_OK)
+                {
+                    Console.WriteLine("ERROR: Can not set FTDI interface baud rate (9600 bps)");
+                    return;
+                }
 
                 // Set TMS, TDI, TCK pins as OUTPUT
                 // Set TDO pin as INPUT
                 // Set MPSSE Option mode
                 // See datasheet for details: https://www.ftdichip.com/Support/Documents/DataSheets/Cables/DS_C232HM_MPSSE_CABLE.pdf
                 // Bits: ---, ---, ---, ---, TMS, TDI, TDO, TCK
-                ft_status = ftdi.SetBitMode(0b11111101, 1);
-                Thread.Sleep(500);
+                if (Ftdi.SetBitMode(0b11111101, 1) != FTDI.FT_STATUS.FT_OK)
+                {
+                    Console.WriteLine("ERROR: Can not set FTDI BitMode");
+                    return;
+                }
 
                 int id = Read_IDCODE();
 
@@ -45,6 +66,7 @@ namespace CPLD.Exercise
                     Console.WriteLine("IDCODE Match: 0x" + id.ToString("X8"));    // Print out IDCODE in HEX format for reference
 
                     // Flash LED's
+                    Console.WriteLine("Flashing LEDs...\nPress Ctrl-C to stop");
                     while (true)
                     {
                         Test_Pins(XC2C64A_VQ44.Pins);
@@ -71,47 +93,47 @@ namespace CPLD.Exercise
         static void Test_Pins(int[] pins)
         {
             // Test-Logic-Reset and go to Run-Test-Idle 
-            tms(1); tms(1); tms(1); tms(1); tms(1); tms(0);
+            Tms(1); Tms(1); Tms(1); Tms(1); Tms(1); Tms(0);
 
             foreach (int pin in pins)
             {
                 // Advance to Shift-DR
-                tms(1); tms(0); tms(0);
+                Tms(1); Tms(0); Tms(0);
 
-                set(TDI, 0);
+                Set(TDI, 0);
 
                 // Shift in all zeroes except for a bit specified in pins[]
                 for (int i = 0; i < XC2C64A_VQ44.BOUNDARY_REGISTER_LENGTH; i++)
                 {
                     if (i == pin)
                     {
-                        set(TDI, 1);
-                        tck(); tck();
-                        set(TDI, 0);
+                        Set(TDI, 1);
+                        Tck(); Tck();
+                        Set(TDI, 0);
                     }
                     else
                     {
-                        tck();
+                        Tck();
                     }
                 }
 
                 // Update-DR and go to Run-Test-Idle
-                tms(1); tms(1); tms(0);
+                Tms(1); Tms(1); Tms(0);
 
-                // Load EXTEST instruction (0b00000000)
                 // Advance to Shift-IR
-                tms(1); tms(1); tms(0); tms(0);
+                Tms(1); Tms(1); Tms(0); Tms(0);
 
+                // Load EXTEST instruction
                 int val = XC2C64A_VQ44.EXTEST_INSTRUCTION;
                 for (int i = 0; i < XC2C64A_VQ44.INSTRUCTION_LENGTH; i++)
                 {
                     val >>= i;
-                    set(TDI, val & 1);
-                    tck();
+                    Set(TDI, val & 1);
+                    Tck();
                 }
 
                 //Advance to Run-Test/Idle
-                tms(1); tms(1); tms(0);
+                Tms(1); Tms(1); Tms(0);
 
                 Thread.Sleep(100);
             }
@@ -129,23 +151,23 @@ namespace CPLD.Exercise
             TAP_Reset();
 
             // Advance TAP to Shift-IR
-            tms(1); tms(1); tms(0); tms(0);
+            Tms(1); Tms(1); Tms(0); Tms(0);
 
             // Shift in IDCODE instruction
-            tdi(1); tdi(0); tdi(0); tdi(0); tdi(0); tdi(0); tdi(0); set(TDI, 0);
+            Tdi(1); Tdi(0); Tdi(0); Tdi(0); Tdi(0); Tdi(0); Tdi(0); Set(TDI, 0);
 
             // Exit1-IR
-            tms(1);
+            Tms(1);
 
             // Advance to Shift-DR
-            tms(1); tms(1); tms(0); tms(0);
+            Tms(1); Tms(1); Tms(0); Tms(0);
 
             // Shift out IDCODE
             int result = 0;
             for (int i = 0; i < XC2C64A_VQ44.IDCODE_REGISTER_LENGTH; i++)
             {
-                int bit = get(TDO);
-                tdi(0);
+                int bit = Get(TDO);
+                Tdi(0);
                 Debug.Write(bit);
 
                 // Reverse bit order because we are reading out LSB first
@@ -155,7 +177,7 @@ namespace CPLD.Exercise
             Debug.Write('\n');
 
             // Advance TAP controller to Run-Test-Idle
-            tms(1); tms(1); tms(0);
+            Tms(1); Tms(1); Tms(0);
 
             return result;
         }
@@ -165,19 +187,19 @@ namespace CPLD.Exercise
         /// </summary>
         static void TAP_Reset()
         {
-            tms(1); tms(1); tms(1); tms(1); tms(1); tms(0);
+            Tms(1); Tms(1); Tms(1); Tms(1); Tms(1); Tms(0);
         }
 
         /// <summary>
-        /// Set TMS High or Low
+        /// Set TMS pin High or Low
         /// </summary>
         /// <param name="value">
-        /// Logic state (0 or 1)
+        /// Logic state (1 or 0)
         /// </param>
-        static void tms(int value)
+        static void Tms(int value)
         {
-            set(TMS, value);
-            tck();
+            Set(TMS, value);
+            Tck();
         }
 
         /// <summary>
@@ -185,24 +207,24 @@ namespace CPLD.Exercise
         /// </summary>
         /// <param name="pin">Pin to read state from</param>
         /// <returns>Pin state (1 or 0)</returns>
-        static int get(byte pin)
+        static int Get(byte pin)
         {
             byte state = 0;
-            ftdi.GetPinStates(ref state);
+            Ftdi.GetPinStates(ref state);
 
             return state >> 1 & 1;
         }
 
         /// <summary>
-        /// Set TDI High or Low
+        /// Set TDI pin High or Low
         /// </summary>
         /// <param name="value">
         /// Logic state (1 or 0)
         /// </param>
-        static void tdi(int value)
+        static void Tdi(int value)
         {
-            set(TDI, value);
-            tck();
+            Set(TDI, value);
+            Tck();
         }
 
         /// <summary>
@@ -210,22 +232,22 @@ namespace CPLD.Exercise
         /// </summary>
         /// <param name="pin">FTDI Pin to set High or Low</param>
         /// <param name="value">Logic state (1 or 0)</param>
-        static void set(byte pin, int value)
+        static void Set(byte pin, int value)
         {
             if (value == 1)
             {
-                data[0] |= (byte)(1 << pin);
+                Data[0] |= (byte)(1 << pin);
             }
             else
             {
-                data[0] &= (byte)~(1 << pin);
+                Data[0] &= (byte)~(1 << pin);
             }
 
             try
             {
                 // Write a byte to the FTDI device to set pin values
                 uint bytesWritten = 0;
-                ftdi.Write(data, 1, ref bytesWritten);
+                Ftdi.Write(Data, 1, ref bytesWritten);
             }
             catch (Exception ex)
             {
@@ -234,13 +256,13 @@ namespace CPLD.Exercise
         }
 
         /// <summary>
-        /// Toggle TCK pin 1/0 with 1-millisecond pulse width and 50% duty cycle
+        /// Toggles TCK pin 1/0 with 1-millisecond pulse width and 50% duty cycle
         /// </summary>
-        static void tck()
+        static void Tck()
         {
-            set(TCK, 1);
+            Set(TCK, 1);
             Thread.Sleep(1);
-            set(TCK, 0);
+            Set(TCK, 0);
             Thread.Sleep(1);
         }
     }

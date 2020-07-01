@@ -4,6 +4,7 @@ namespace SX.JTAG.Xilinx
 {
     /// <summary>
     /// Simplified Xilinx chip functions and configuration from BSDL file
+    /// https://bsdl.info/view.htm?sid=44118061aee25ef888ca59b002289d77
     /// NOTE: Specific to each device and package version
     /// </summary>
     public class XC2C64A_VQ44

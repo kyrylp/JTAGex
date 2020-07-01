@@ -9,6 +9,7 @@ namespace UnitTest
         [TestMethod]
         public void TestMethod1()
         {
+            // TODO: Implement test method to run Read_IDCODE() 10k times
             Assert.IsTrue(true);
         }
     }

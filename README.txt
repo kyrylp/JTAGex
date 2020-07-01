@@ -6,8 +6,16 @@ A NuGet package library (SX.JTAG.Xilinx) contains description of device-specific
 
 The main project (JTAGex) has dependency on SX.JTAG.Xilinx library as well as on FTDI NuGet library (FTD2XX_NET).
 
+===========================================================================================
 Build Instructions:
-	TBD
+1.
 
+2.
 
+3.
+
+===========================================================================================
+USAGE: JTAGex.exe [NUMBER]
+Where NUMBER is optional FTDI interface number
+===========================================================================================
 
